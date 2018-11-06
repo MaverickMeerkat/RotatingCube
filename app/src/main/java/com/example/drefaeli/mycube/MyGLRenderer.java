@@ -30,23 +30,22 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         // Set the background frame color
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-        GLES20.glEnable( GLES20.GL_DEPTH_TEST );
-        GLES20.glDepthFunc( GLES20.GL_LEQUAL );
-        GLES20.glDepthMask( true );
-
-        Matrix.setRotateM(identityRotationMatrix, 0 ,0,1.0f,1.0f,1.0f);
-
+        clearColorAndDepth();
+        Matrix.setIdentityM(identityRotationMatrix, 0);
         cube = new Cube();
     }
 
     public void onDrawFrame(GL10 unused) {
+        clearColorAndDepth();
+        float[] mvpMatrix = setModelViewProjectionMatrix();
+        cube.draw(mvpMatrix);
+    }
+
+    private void clearColorAndDepth() {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
         GLES20.glEnable( GLES20.GL_DEPTH_TEST );
         GLES20.glDepthFunc( GLES20.GL_LEQUAL );
         GLES20.glDepthMask( true );
-        float[] mvpMatrix = setModelViewProjectionMatrix();
-        cube.draw(mvpMatrix);
     }
 
     private float[] setModelViewProjectionMatrix() {
@@ -66,23 +65,27 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
     private float[] createCameraPosition() {
         // Set the camera position (View matrix)
         float[] viewMatrix = new float[16];
-        Matrix.setLookAtM(viewMatrix, 0, 0, 0, -6, 0f, 0f,
+        Matrix.setLookAtM(viewMatrix, 0, 0, 0, 6, 0f, 0f,
                 0f, 0f, 1.0f, 0.0f);
         return viewMatrix;
     }
 
     private float[] createRotationMatrix() {
-        // Create a rotation transformation for the shape
+        // angles are counter clockwise when looking against the axis
         if (angleAroundX == -1){
             angleAroundX = 0.5f;
+            // a positive x angle means it wants to turn "towards us"
+            // a negative x angle means it wants to turn "away from us"
         }
         if(angleAroundY == -1){
             angleAroundY = 0.5f;
+            // a positive y angle means it wants to turn left to right
+            // a negative x angle means it wants to turn right to left
         }
 
         float[] rotationMatrixX = new float[16];
         float[] rotationMatrixY = new float[16];
-        Matrix.setRotateM(rotationMatrixX, 0, angleAroundX, -1.0f, 0.0f, 0.0f);
+        Matrix.setRotateM(rotationMatrixX, 0, angleAroundX, 1.0f, 0.0f, 0.0f);
         Matrix.setRotateM(rotationMatrixY, 0, angleAroundY, 0.0f, 1.0f, 0.0f);
         float[] currentRotationMatrix = new float[16];
 

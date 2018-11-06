@@ -4,7 +4,9 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 
 public class MainActivity extends AppCompatActivity {
     private MyGLSurfaceView glSurfaceView;
@@ -16,7 +18,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         glSurfaceView = new MyGLSurfaceView(this);
         setContentView(glSurfaceView);
     }
@@ -37,9 +38,26 @@ public class MainActivity extends AppCompatActivity {
         glSurfaceView.renderer.angleAroundY = savedInstanceState.getFloat(ANGLE_Y_TAG);
     }
 
-    class MyGLSurfaceView extends GLSurfaceView {
+    // A GLSurfaceView must be notified when to pause and resume rendering.
+    // GLSurfaceView clients are required to call onPause() when the activity stops and onResume()
+    // when the activity starts. These calls allow GLSurfaceView to pause and resume the rendering
+    // thread, and also allow GLSurfaceView to release and recreate the OpenGL display.
+    @Override
+    public void onResume() {
+        super.onResume();
+        glSurfaceView.onResume();
+    }
 
+    @Override
+    public void onPause() {
+        super.onPause();
+        glSurfaceView.onPause();
+    }
+
+    class MyGLSurfaceView extends GLSurfaceView {
         public final MyGLRenderer renderer;
+
+        private final float TOUCH_SCALE_FACTOR = 180.0f / 1020;
 
         public MyGLSurfaceView(Context context) {
             super(context);
@@ -47,41 +65,38 @@ public class MainActivity extends AppCompatActivity {
             renderer = new MyGLRenderer();
             setRenderer(renderer);
 
-            // Render the view only when there is a change in the drawing data
-//            setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
-        }
 
-        private final float TOUCH_SCALE_FACTOR = 180.0f / 1020;
-        private float previousX;
-        private float previousY;
+            ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                @Override
+                public boolean onScale(ScaleGestureDetector detector) {
+                    return super.onScale(detector);
+                }
+            });
 
-        @Override
-        public boolean onTouchEvent(MotionEvent e) {
-            float x = e.getX();
-            float y = e.getY();
+            GestureDetector gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                    renderer.setAngleAroundX(-distanceY * TOUCH_SCALE_FACTOR);
+                    renderer.setAngleAroundY(-distanceX * TOUCH_SCALE_FACTOR);
+                    return super.onScroll(e1, e2, distanceX, distanceY);
+                }
 
-            switch (e.getAction()) {
-                case MotionEvent.ACTION_MOVE:
-                    float dx = x - previousX;
-                    float dy = y - previousY;
-                    renderer.setAngleAroundX(dy * TOUCH_SCALE_FACTOR);
-                    renderer.setAngleAroundY(dx * TOUCH_SCALE_FACTOR);
-                    requestRender();
-                    break;
-                case MotionEvent.ACTION_DOWN:
+                @Override
+                public boolean onDown(MotionEvent e) {
                     renderer.setAngleAroundX(0);
                     renderer.setAngleAroundY(0);
-                    break;
+                    return super.onDown(e);
+                }
+            });
 
-                case MotionEvent.ACTION_UP:
-//                    renderer.setAngleAroundX(0.5f);
-//                    renderer.setAngleAroundY(0.5f);
-                    break;
-            }
+            setOnTouchListener((v, event) -> {
+                gestureDetector.onTouchEvent(event);
+                scaleGestureDetector.onTouchEvent(event);
+                return true;}
+            );
 
-            previousX = x;
-            previousY = y;
-            return true;
+            // Render the view only when there is a change in the drawing data
+//            setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
         }
     }
 }
