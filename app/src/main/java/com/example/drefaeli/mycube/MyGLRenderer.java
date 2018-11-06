@@ -18,6 +18,12 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
     float angleAroundY = -1f;
     float angleAroundX = -1f;
     float[] previousRotationMatrix = new float[16];
+    float scalingProjection = -1f;
+    private float screenRatio;
+
+    private static final float MIN_SCALING = 0.5f;
+    private static final float MAX_SCALING = 6f;
+    private static final float FRICTION = 0.01f;
 
     void setAngleAroundX(float angleAroundX) {
         this.angleAroundX = angleAroundX;
@@ -29,7 +35,6 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        // Set the background frame color
         clearColorAndDepth();
         Matrix.setIdentityM(identityRotationMatrix, 0);
         cube = new Cube();
@@ -100,13 +105,25 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(rotationMatrix, 0, currentRotationMatrix , 0, previousRotationMatrix, 0);
         previousRotationMatrix = rotationMatrix.clone();
 
+        angleAroundX *= 1 - FRICTION;
+        angleAroundY *= 1 - FRICTION;
+
         return rotationMatrix;
     }
 
     public void onSurfaceChanged(GL10 unused, int width, int height) {
         GLES20.glViewport(0, 0, width, height);
-        float ratio = (float) width / height;
-        Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
+        screenRatio = (float) width / height;
+        doProjection();
+    }
+
+    public void doProjection() {
+        if (scalingProjection == -1){
+            scalingProjection = 3;
+        } else {
+            scalingProjection = Math.min(MAX_SCALING, Math.max(MIN_SCALING, scalingProjection));
+        }
+        Matrix.frustumM(projectionMatrix, 0, -screenRatio, screenRatio, -1, 1, scalingProjection, 7);
     }
 
     static int loadShader(int type, String shaderCode){
