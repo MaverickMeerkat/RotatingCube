@@ -17,42 +17,41 @@ public class Cube {
     private int program;
 
     private final String vertexShaderCode =
+            "uniform mat4 uMVMatrix;" +
             "uniform mat4 uMVPMatrix;" +
-                    "uniform mat4 uMVMMatrix;" +
-                    "uniform vec3 uLightPos;" +
-                    "attribute vec3 vNormal;" +
+                    "uniform vec4 uLightPos;" +
                     "attribute vec4 vPosition;" +
                     "attribute vec4 vColor;" +
+                    "attribute vec3 vNormal;" +
+                    "varying vec4 vNormalVarying;" +
                     "varying vec4 vColorVarying;" +
+                    "varying vec4 vLightPosVarying;" +
+                    "varying vec4 vVertexPositionVarying; " +
                     "void main()" +
                     "{" +
-                    "   vec3 modelViewVertex = vec3(uMVMMatrix * vPosition);" +
-                    "   vec3 modelViewNormal = vec3(uMVMMatrix * vec4(vNormal, 0.0));" +
-                    "   float distance = length(uLightPos - modelViewVertex);" +
-                    "   vec3 lightVector = normalize(uLightPos - modelViewVertex);" +
-                    "   float diffuse = max(dot(modelViewNormal, lightVector), 0.1);" +
-                    "   diffuse = diffuse * (1.0 / (1.0 + (0.25 * distance * distance))); " +
-                    "   vColorVarying = vColor;" + // * diffuse;" +
                     "   gl_Position = uMVPMatrix * vPosition;" +
+                    "   vVertexPositionVarying = uMVMatrix * vPosition;" +
+                    "   vColorVarying = vColor;" +
+                    "   vLightPosVarying = uLightPos;" +
+                    "   vec4 v4Normal = vec4(vNormal, 0.0);" +
+                    "   vNormalVarying = uMVMatrix * v4Normal;" +
                     "}";
-
-//                "uniform mat4 uMVPMatrix;" +
-//                        "attribute vec4 vPosition;" +
-//                        "attribute vec4 vColor;" +
-//                        "varying vec4 vColorVarying;" +
-//                        "void main() {" +
-//                        "  gl_Position = uMVPMatrix * vPosition;" +
-//                        "vColorVarying = vColor;" +
-//                        "}";
 
     private final String fragmentShaderCode =
             "precision mediump float;" +
                     "varying vec4 vColorVarying;" +
+                    "varying vec4 vLightPosVarying;" +
+                    "varying vec4 vVertexPositionVarying;" +
+                    "varying vec4 vNormalVarying;" +
                     "void main() {" +
-                    "  gl_FragColor = vColorVarying;" +
+                    "   vec4 normalizedLightVector = normalize(vLightPosVarying - vVertexPositionVarying);" +
+                    "   float normalDiffuse = max(dot(vNormalVarying, normalizedLightVector), 0.4);" +
+                    "   float distance = length(vLightPosVarying - vVertexPositionVarying);" +
+                    "   float distanceDiffuse = 1.0 / " +
+                    "       (1.0 + 0.00 * distance + 0.015 * distance * distance); " +
+                    "  float diffuse = normalDiffuse * distanceDiffuse;" +
+                    "  gl_FragColor = vColorVarying * diffuse;" +
                     "}";
-
-
 
     private static final int COORDS_PER_VERTEX = 3;
 //    private float cubeCoords[] =
@@ -141,7 +140,6 @@ public class Cube {
                     -0.5f, -0.5f, -0.5f,
             };
 
-    // R, G, B, A
     final float[] cubeColor =
             {
                     // Front face (red)
@@ -193,10 +191,7 @@ public class Cube {
                     1.0f, 0.0f, 1.0f, 1.0f
             };
 
-    // X, Y, Z
-    // The normal is used in light calculations and is a vector which points
-    // orthogonal to the plane of the surface. For a cube model, the normals
-    // should be orthogonal to the points of each face.
+
     final float[] cubeNormalData =
             {
                     // Front face
@@ -270,7 +265,7 @@ public class Cube {
 
         // initialize byte buffer for the color list
         ByteBuffer cb = ByteBuffer.allocateDirect(
-                // (# of coordinate values * 2 bytes per short)
+                // (# of coordinate values * 4 bytes per float)
                 cubeColor.length * 4);
         cb.order(ByteOrder.nativeOrder());
         colorBuffer = cb.asFloatBuffer();
@@ -278,7 +273,7 @@ public class Cube {
         colorBuffer.position(0);
 
         ByteBuffer nb = ByteBuffer.allocateDirect(
-                // (# of coordinate values * 2 bytes per short)
+                // (# of coordinate values * 4 bytes per float)
                 cubeNormalData.length * 4);
         nb.order(ByteOrder.nativeOrder());
         normalsBuffer = nb.asFloatBuffer();
@@ -294,12 +289,11 @@ public class Cube {
     }
 
 
-    public void draw(float[] mvpMatrix, float[] mvMatrix, float[] lightPosInEyeSpace) {
+    public void draw(float[] mvmMatrix, float[] mvpMatrix, float[] lightPosInEyeSpace) {
         GLES20.glUseProgram(program);
 
         int positionHandle = GLES20.glGetAttribLocation(program, "vPosition");
         int colorHandle = GLES20.glGetAttribLocation(program, "vColor");
-        int MVMatrixHandle = GLES20.glGetUniformLocation(program, "uMVMatrix");
         int lightPosHandle = GLES20.glGetUniformLocation(program, "uLightPos");
         int normalHandle = GLES20.glGetAttribLocation(program, "vNormal");
 
@@ -315,17 +309,18 @@ public class Cube {
         GLES20.glVertexAttribPointer(normalHandle, 3, GLES20.GL_FLOAT, false,
                 0, normalsBuffer);
 
-        GLES20.glUniformMatrix4fv(MVMatrixHandle, 1, false, mvMatrix, 0);
+        int MVMatrixHandle = GLES20.glGetUniformLocation(program, "uMVMatrix");
+        GLES20.glUniformMatrix4fv(MVMatrixHandle, 1, false, mvmMatrix, 0);
+
         int MVPMatrixHandle = GLES20.glGetUniformLocation(program, "uMVPMatrix");
         GLES20.glUniformMatrix4fv(MVPMatrixHandle, 1, false, mvpMatrix, 0);
 
         // Pass in the light position in eye space.
-        GLES20.glUniform3f(lightPosHandle, lightPosInEyeSpace[0], lightPosInEyeSpace[1], lightPosInEyeSpace[2]);
+        GLES20.glUniform4f(lightPosHandle, lightPosInEyeSpace[0], lightPosInEyeSpace[1], lightPosInEyeSpace[2], lightPosInEyeSpace[3]);
 
         // Draw the cube
-        //GLES20.glDrawElements(GLES20.GL_TRIANGLES, drawOrder.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+//        GLES20.glDrawElements(GLES20.GL_TRIANGLES, drawOrder.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 36);
-
 
         // Disable vertex array
         GLES20.glDisableVertexAttribArray(colorHandle);

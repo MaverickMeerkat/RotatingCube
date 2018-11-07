@@ -29,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
         outState.putFloatArray(ROTATION_MATRIX_TAG, glSurfaceView.renderer.previousRotationMatrix);
         outState.putFloat(ANGLE_X_TAG, glSurfaceView.renderer.angleAroundX);
         outState.putFloat(ANGLE_Y_TAG, glSurfaceView.renderer.angleAroundY);
-        outState.putFloat(SCALE_TAG, glSurfaceView.renderer.scalingProjection);
+        outState.putFloat(SCALE_TAG, glSurfaceView.renderer.scalingTranslation);
     }
 
     @Override
@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
         glSurfaceView.renderer.previousRotationMatrix = savedInstanceState.getFloatArray(ROTATION_MATRIX_TAG);
         glSurfaceView.renderer.angleAroundX = savedInstanceState.getFloat(ANGLE_X_TAG);
         glSurfaceView.renderer.angleAroundY = savedInstanceState.getFloat(ANGLE_Y_TAG);
-        glSurfaceView.renderer.scalingProjection = savedInstanceState.getFloat(SCALE_TAG);
+        glSurfaceView.renderer.scalingTranslation = savedInstanceState.getFloat(SCALE_TAG);
     }
 
     // A GLSurfaceView must be notified when to pause and resume rendering.
@@ -71,8 +71,7 @@ public class MainActivity extends AppCompatActivity {
             ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 @Override
                 public boolean onScale(ScaleGestureDetector detector) {
-                    renderer.scalingProjection *= slowDownScaling(detector.getScaleFactor());
-                    renderer.doProjection();
+                    renderer.scalingTranslation *= slowDownScaling(detector.getScaleFactor());
                     return super.onScale(detector);
                 }
 
