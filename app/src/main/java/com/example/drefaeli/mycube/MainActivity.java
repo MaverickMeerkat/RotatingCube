@@ -68,7 +68,6 @@ public class MainActivity extends AppCompatActivity {
             renderer = new MyGLRenderer();
             setRenderer(renderer);
 
-
             ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 @Override
                 public boolean onScale(ScaleGestureDetector detector) {
