@@ -5,33 +5,31 @@ package com.example.drefaeli.mycube;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
-
 import java.util.Arrays;
-
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-public class MyGLRenderer implements GLSurfaceView.Renderer {
+public class CubeGLRenderer implements GLSurfaceView.Renderer {
     private Cube cube;
+    private CubeState cubeState;
+
     private final float[] projectionMatrix = new float[16];
     private float[] identityMatrix = new float[16];
-    float angleAroundY = -1f;
-    float angleAroundX = -1f;
-    float[] previousRotationMatrix = new float[16];
-    float scalingTranslation = 20f;
     private float screenRatio;
     private final float[] lightPosition = new float[]{0, 0, 0, 1};
 
-    private static final float MIN_SCALING = -20f;
-    private static final float MAX_SCALING = 20f;
     private static final float FRICTION = 0.01f;
+    private float localAngleX;
+    private float localAngleY;
 
-    void setAngleAroundX(float angleAroundX) {
-        this.angleAroundX = angleAroundX;
+    CubeGLRenderer(){
+        cubeState = new CubeState();
+        localAngleX = cubeState.getAngleAroundX();
+        localAngleY = cubeState.getAngleAroundY();
     }
 
-    void setAngleAroundY(float angleAroundY) {
-        this.angleAroundY = angleAroundY;
+    CubeState getCubeState(){
+        return cubeState;
     }
 
     @Override
@@ -74,10 +72,9 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
     }
 
     private float[] doTranslation() {
-        scalingTranslation = Math.min(MAX_SCALING, Math.max(MIN_SCALING, scalingTranslation));
         float[] translatedMatrix = new float[16];
         Matrix.setIdentityM(translatedMatrix, 0);
-        Matrix.translateM(translatedMatrix, 0,0,0, scalingTranslation - 20);
+        Matrix.translateM(translatedMatrix, 0,0,0, cubeState.getScalingTranslation() - 20);
         return translatedMatrix;
     }
 
@@ -97,40 +94,47 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
 
     private float[] createRotationMatrix() {
         // angles are counter clockwise when looking against the axis
-        if (angleAroundX == -1) {
-            angleAroundX = 0.5f;
+        if (localAngleX == -1) {
+            localAngleX = 0.5f;
             // a positive x angle means it wants to turn "towards us"
             // a negative x angle means it wants to turn "away from us"
         }
-        if (angleAroundY == -1) {
-            angleAroundY = 0.5f;
+
+        if (localAngleY == -1) {
+            localAngleY = 0.5f;
             // a positive y angle means it wants to turn left to right
             // a negative x angle means it wants to turn right to left
         }
 
         float[] rotationMatrixX = new float[16];
         float[] rotationMatrixY = new float[16];
-        Matrix.setRotateM(rotationMatrixX, 0, angleAroundX, 1.0f, 0.0f, 0.0f);
-        Matrix.setRotateM(rotationMatrixY, 0, angleAroundY, 0.0f, 1.0f, 0.0f);
+        Matrix.setRotateM(rotationMatrixX, 0, localAngleX, 1.0f, 0.0f, 0.0f);
+        Matrix.setRotateM(rotationMatrixY, 0, localAngleY, 0.0f, 1.0f, 0.0f);
         float[] currentRotationMatrix = new float[16];
 
-        if (Arrays.equals(previousRotationMatrix, currentRotationMatrix)) { // i.e. empty matrix
-            previousRotationMatrix = identityMatrix;
+        if (Arrays.equals(cubeState.getPreviousRotationMatrix(), currentRotationMatrix)) { // i.e. empty matrix
+            cubeState.setPreviousRotationMatrix(identityMatrix);
         }
 
         Matrix.multiplyMM(currentRotationMatrix, 0, rotationMatrixX, 0, rotationMatrixY, 0);
 
         float[] rotationMatrix = new float[16];
-        Matrix.multiplyMM(rotationMatrix, 0, currentRotationMatrix, 0, previousRotationMatrix, 0);
-        previousRotationMatrix = rotationMatrix.clone();
+        Matrix.multiplyMM(rotationMatrix, 0, currentRotationMatrix, 0, cubeState.getPreviousRotationMatrix(), 0);
+        cubeState.setPreviousRotationMatrix(rotationMatrix);
 
-        angleAroundX *= 1 - FRICTION;
-        angleAroundY *= 1 - FRICTION;
+        localAngleX *= 1 - FRICTION;
+        localAngleY *= 1 - FRICTION;
 
         return rotationMatrix;
     }
 
     public void doProjection() {
         Matrix.frustumM(projectionMatrix, 0, -screenRatio, screenRatio, -1, 1, 3, 30);
+    }
+
+    public void UpdateState(CubeState newState) {
+        cubeState = newState;
+        localAngleX = cubeState.getAngleAroundX();
+        localAngleY = cubeState.getAngleAroundY();
     }
 }

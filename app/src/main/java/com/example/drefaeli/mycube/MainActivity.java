@@ -9,7 +9,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
 public class MainActivity extends AppCompatActivity {
-    private MyGLSurfaceView glSurfaceView;
+    private CubeGLSurfaceView glSurfaceView;
 
     private final static String ROTATION_MATRIX_TAG = "rotationMatrix";
     private final static String ANGLE_X_TAG = "angleX";
@@ -19,26 +19,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        glSurfaceView = new MyGLSurfaceView(this);
+        glSurfaceView = new CubeGLSurfaceView(this);
         setContentView(glSurfaceView);
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putFloatArray(ROTATION_MATRIX_TAG, glSurfaceView.renderer.previousRotationMatrix);
-        outState.putFloat(ANGLE_X_TAG, glSurfaceView.renderer.angleAroundX);
-        outState.putFloat(ANGLE_Y_TAG, glSurfaceView.renderer.angleAroundY);
-        outState.putFloat(SCALE_TAG, glSurfaceView.renderer.scalingTranslation);
+        outState.putFloatArray(ROTATION_MATRIX_TAG, glSurfaceView.renderer.getCubeState().getPreviousRotationMatrix());
+        outState.putFloat(ANGLE_X_TAG, glSurfaceView.renderer.getCubeState().getAngleAroundX());
+        outState.putFloat(ANGLE_Y_TAG, glSurfaceView.renderer.getCubeState().getAngleAroundY());
+        outState.putFloat(SCALE_TAG, glSurfaceView.renderer.getCubeState().getScalingTranslation());
     }
 
     @Override
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-        glSurfaceView.renderer.previousRotationMatrix = savedInstanceState.getFloatArray(ROTATION_MATRIX_TAG);
-        glSurfaceView.renderer.angleAroundX = savedInstanceState.getFloat(ANGLE_X_TAG);
-        glSurfaceView.renderer.angleAroundY = savedInstanceState.getFloat(ANGLE_Y_TAG);
-        glSurfaceView.renderer.scalingTranslation = savedInstanceState.getFloat(SCALE_TAG);
+        glSurfaceView.queueEvent(() -> glSurfaceView.renderer.UpdateState(new CubeState(savedInstanceState.getFloatArray(ROTATION_MATRIX_TAG),
+                savedInstanceState.getFloat(ANGLE_X_TAG),
+                savedInstanceState.getFloat(ANGLE_Y_TAG),
+                savedInstanceState.getFloat(SCALE_TAG))));
     }
 
     // A GLSurfaceView must be notified when to pause and resume rendering.
@@ -57,21 +57,27 @@ public class MainActivity extends AppCompatActivity {
         glSurfaceView.onPause();
     }
 
-    class MyGLSurfaceView extends GLSurfaceView {
-        public final MyGLRenderer renderer;
+    class CubeGLSurfaceView extends GLSurfaceView {
+        public final CubeGLRenderer renderer;
 
         private final float TOUCH_SCALE_FACTOR = 180.0f / 1020;
 
-        public MyGLSurfaceView(Context context) {
+        public CubeGLSurfaceView(Context context) {
             super(context);
             setEGLContextClientVersion(2);
-            renderer = new MyGLRenderer();
+            renderer = new CubeGLRenderer();
             setRenderer(renderer);
+
 
             ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 @Override
                 public boolean onScale(ScaleGestureDetector detector) {
-                    renderer.scalingTranslation *= slowDownScaling(detector.getScaleFactor());
+                    CubeState prevState = renderer.getCubeState();
+                    CubeState newState = new CubeState(prevState.getPreviousRotationMatrix(),
+                            prevState.getAngleAroundX(),
+                            prevState.getAngleAroundY(),
+                            slowDownScaling(detector.getScaleFactor()) * prevState.getScalingTranslation());
+                    queueEvent(() -> renderer.UpdateState(newState));
                     return super.onScale(detector);
                 }
 
@@ -88,15 +94,23 @@ public class MainActivity extends AppCompatActivity {
             GestureDetector gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                    renderer.setAngleAroundX(-distanceY * TOUCH_SCALE_FACTOR);
-                    renderer.setAngleAroundY(-distanceX * TOUCH_SCALE_FACTOR);
+                    CubeState prevState = renderer.getCubeState();
+                    CubeState newState = new CubeState(prevState.getPreviousRotationMatrix(),
+                            -distanceY * TOUCH_SCALE_FACTOR,
+                            -distanceX * TOUCH_SCALE_FACTOR,
+                            prevState.getScalingTranslation());
+                    queueEvent(() -> renderer.UpdateState(newState));
                     return super.onScroll(e1, e2, distanceX, distanceY);
                 }
 
                 @Override
                 public boolean onDown(MotionEvent e) {
-                    renderer.setAngleAroundX(0);
-                    renderer.setAngleAroundY(0);
+                    CubeState prevState = renderer.getCubeState();
+                    CubeState newState = new CubeState(prevState.getPreviousRotationMatrix(),
+                            0,
+                            0,
+                            prevState.getScalingTranslation());
+                    queueEvent(() -> renderer.UpdateState(newState));
                     return super.onDown(e);
                 }
             });
